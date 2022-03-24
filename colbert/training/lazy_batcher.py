@@ -29,11 +29,12 @@ class LazyBatcher():
         nodes is random (since the underlying file is pre-shuffled), there's no concern here.
         """
         print_message("#> Loading triples...")
-
+        print_message(rank, nranks)
         triples = []
 
         with open(path) as f:
             for line_idx, line in enumerate(f):
+                print(line)
                 if line_idx % nranks == rank:
                     qid, pos, neg = ujson.loads(line)
                     triples.append((qid, pos, neg))

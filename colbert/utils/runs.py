@@ -48,6 +48,7 @@ class _RunManager():
             else:
                 create_directory(self.path)
 
+        # if isdistributed:
         distributed.barrier(rank)
 
         self._logger = Logger(rank, self)

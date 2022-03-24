@@ -2,11 +2,11 @@ import string
 import torch
 import torch.nn as nn
 
-from transformers import BertPreTrainedModel, BertModel, BertTokenizerFast
+from transformers import RobertaPreTrainedModel, RobertaModel, AutoTokenizer
 from colbert.parameters import DEVICE
 
 
-class ColBERT(BertPreTrainedModel):
+class ColBERT(RobertaPreTrainedModel):
     def __init__(self, config, query_maxlen, doc_maxlen, mask_punctuation, dim=128, similarity_metric='cosine'):
 
         super(ColBERT, self).__init__(config)
@@ -20,12 +20,17 @@ class ColBERT(BertPreTrainedModel):
         self.skiplist = {}
 
         if self.mask_punctuation:
-            self.tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
+            self.tokenizer = AutoTokenizer.from_pretrained('vinai/phobert-base')
+            self.tokenizer.add_tokens('[unused0]')
+            self.tokenizer.add_tokens('[unused1]')
             self.skiplist = {w: True
                              for symbol in string.punctuation
                              for w in [symbol, self.tokenizer.encode(symbol, add_special_tokens=False)[0]]}
 
-        self.bert = BertModel(config)
+        self.bert = RobertaModel(config)
+        self.bert.resize_token_embeddings(len(self.tokenizer)) 
+        with torch.no_grad():
+            self.bert.embeddings.word_embeddings.weight[-1, :] = torch.zeros([self.bert.config.hidden_size])
         self.linear = nn.Linear(config.hidden_size, dim, bias=False)
 
         self.init_weights()
