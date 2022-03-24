@@ -160,3 +160,4 @@ Some use cases (e.g., building a user-facing search engines) require more contro
 * v0.1.0: June 2020
 
 # colbert_qa
+# ColBERTQA_Vietnamese
