@@ -7,7 +7,7 @@ from colbert.parameters import DEVICE
 
 
 class ColBERT(RobertaPreTrainedModel):
-    def __init__(self, config, query_maxlen, doc_maxlen, mask_punctuation, dim=128, similarity_metric='cosine'):
+    def __init__(self, config, query_maxlen, doc_maxlen, mask_punctuation, pretrained_tokenizer="", dim=128, similarity_metric='cosine'):
 
         super(ColBERT, self).__init__(config)
 
@@ -15,22 +15,25 @@ class ColBERT(RobertaPreTrainedModel):
         self.doc_maxlen = doc_maxlen
         self.similarity_metric = similarity_metric
         self.dim = dim
-
+    
         self.mask_punctuation = mask_punctuation
         self.skiplist = {}
 
         if self.mask_punctuation:
-            self.tokenizer = AutoTokenizer.from_pretrained('vinai/phobert-base')
-            self.tokenizer.add_tokens('[unused0]')
-            self.tokenizer.add_tokens('[unused1]')
+            if pretrained_tokenizer:
+                self.tokenizer = AutoTokenizer.from_pretrained(pretrained_tokenizer)
+            else:
+                self.tokenizer = AutoTokenizer.from_pretrained('vinai/phobert-base')
+                self.tokenizer.add_tokens(new_tokens=['[Q]', '[D]'], special_tokens=True)
             self.skiplist = {w: True
                              for symbol in string.punctuation
                              for w in [symbol, self.tokenizer.encode(symbol, add_special_tokens=False)[0]]}
 
         self.bert = RobertaModel(config)
+        # resize embedding for new tokens
         self.bert.resize_token_embeddings(len(self.tokenizer)) 
-        with torch.no_grad():
-            self.bert.embeddings.word_embeddings.weight[-1, :] = torch.zeros([self.bert.config.hidden_size])
+        # with torch.no_grad():
+            # self.bert.embeddings.word_embeddings.weight[-1, :] = torch.zeros([self.bert.config.hidden_size])
         self.linear = nn.Linear(config.hidden_size, dim, bias=False)
 
         self.init_weights()

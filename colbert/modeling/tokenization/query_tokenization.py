@@ -5,15 +5,17 @@ from colbert.modeling.tokenization.utils import _split_into_batches
 
 
 class QueryTokenizer():
-    def __init__(self, query_maxlen):
-        self.tok = AutoTokenizer.from_pretrained("vinai/phobert-base")
+    def __init__(self, query_maxlen, pretrained_tokenizer=""):
         self.query_maxlen = query_maxlen
+        self.Q_marker_token = '[Q]'
 
-        self.Q_marker_token, self.Q_marker_token_id = '[Q]', self.tok.convert_tokens_to_ids('[unused0]')
-        if self.Q_marker_token_id == 3:
-            self.tok.add_tokens('[unused0]')
-            self.tok.add_tokens('[unused1]')
-            self.Q_marker_token_id = self.tok.convert_tokens_to_ids('[unused0]')
+        if not pretrained_tokenizer:
+            self.tok = AutoTokenizer.from_pretrained("vinai/phobert-base")
+            self.tok.add_tokens(['[Q]', '[D]'], special_tokens=True)
+        else:
+            self.tok = AutoTokenizer.from_pretrained(pretrained_tokenizer)
+        self.Q_marker_token_id = self.tok.convert_tokens_to_ids('[Q]')
+
         self.cls_token, self.cls_token_id = self.tok.cls_token, self.tok.cls_token_id
         self.sep_token, self.sep_token_id = self.tok.sep_token, self.tok.sep_token_id
         self.mask_token, self.mask_token_id = self.tok.mask_token, self.tok.mask_token_id
