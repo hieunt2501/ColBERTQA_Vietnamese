@@ -123,4 +123,6 @@ def train(args):
 
                 print_message(batch_idx, avg_loss)
                 manage_checkpoints(args, colbert, optimizer, batch_idx+1, epoch)
-        print_message("Epoch {epoch}: loss = {avg_loss}")
+        start_batch_idx = 0
+        manage_checkpoints(args, colbert, optimizer, batch_idx+1, epoch)
+        print_message(f"Epoch {epoch}: loss = {avg_loss}")
