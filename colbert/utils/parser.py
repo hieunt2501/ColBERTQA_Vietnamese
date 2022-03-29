@@ -41,7 +41,7 @@ class Arguments():
         self.add_argument('--bsize', dest='bsize', default=32, type=int)
         self.add_argument('--accum', dest='accumsteps', default=2, type=int)
         self.add_argument('--amp', dest='amp', default=False, action='store_true')
-        self.add_argument('--epochs', dest='epochs', default=10, type=int)
+        # self.add_argument('--epochs', dest='epochs', default=1, type=int)
 
     def add_model_inference_parameters(self):
         self.add_argument('--checkpoint', dest='checkpoint', required=True)
@@ -49,9 +49,10 @@ class Arguments():
         self.add_argument('--amp', dest='amp', default=False, action='store_true')
 
     def add_training_input(self):
-        self.add_argument('--triples', dest='triples', required=True)
-        self.add_argument('--queries', dest='queries', default=None)
-        self.add_argument('--collection', dest='collection', default=None)
+        # self.add_argument('--triples', dest='triples', required=True)
+        self.add_argument('--positives', dest='positives', required=True)
+        self.add_argument('--queries', dest='queries', required=True)
+        self.add_argument('--collection', dest='collection', required=True)
 
         def check_training_input(args):
             assert (args.collection is None) == (args.queries is None), \

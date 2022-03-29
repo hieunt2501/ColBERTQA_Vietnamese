@@ -35,14 +35,14 @@ def file_tqdm(file):
         pbar.close()
 
 
-def save_checkpoint(path, epoch_idx, mb_idx, model, optimizer, arguments=None):
+def save_checkpoint(path, mb_idx, model, optimizer, arguments=None):
     print(f"#> Saving a checkpoint to {path} ..")
 
     if hasattr(model, 'module'):
         model = model.module  # extract model from a distributed/data-parallel wrapper
 
     checkpoint = {}
-    checkpoint['epoch'] = epoch_idx
+    # checkpoint['epoch'] = epoch_idx
     checkpoint['batch'] = mb_idx
     checkpoint['model_state_dict'] = model.state_dict()
     checkpoint['optimizer_state_dict'] = optimizer.state_dict()
@@ -80,7 +80,7 @@ def load_checkpoint(path, model, optimizer=None, do_print=True):
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
     if do_print:
-        print_message("#> checkpoint['epoch'] =", checkpoint['epoch'])
+        # print_message("#> checkpoint['epoch'] =", checkpoint['epoch'])
         print_message("#> checkpoint['batch'] =", checkpoint['batch'])
 
     return checkpoint
