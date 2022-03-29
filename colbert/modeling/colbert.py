@@ -23,7 +23,7 @@ class ColBERT(RobertaPreTrainedModel):
             if pretrained_tokenizer:
                 self.tokenizer = AutoTokenizer.from_pretrained(pretrained_tokenizer)
             else:
-                self.tokenizer = AutoTokenizer.from_pretrained('vinai/phobert-base')
+                self.tokenizer = AutoTokenizer.from_pretrained('vinai/bartpho-word', use_fast=False)
                 self.tokenizer.add_tokens(new_tokens=['[Q]', '[D]'], special_tokens=True)
             self.skiplist = {w: True
                              for symbol in string.punctuation

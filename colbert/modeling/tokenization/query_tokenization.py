@@ -10,7 +10,7 @@ class QueryTokenizer():
         self.Q_marker_token = '[Q]'
 
         if not pretrained_tokenizer:
-            self.tok = AutoTokenizer.from_pretrained("vinai/phobert-base")
+            self.tok = AutoTokenizer.from_pretrained("vinai/bartpho-word")
             self.tok.add_tokens(['[Q]', '[D]'], special_tokens=True)
         else:
             self.tok = AutoTokenizer.from_pretrained(pretrained_tokenizer)

@@ -11,7 +11,7 @@ from colbert.utils.utils import print_message, load_checkpoint
 
 
 def load_model(args, do_print=True):
-    colbert = ColBERT.from_pretrained('vinai/phobert-base',
+    colbert = ColBERT.from_pretrained("vinai/bartpho-word",
                                       query_maxlen=args.query_maxlen,
                                       doc_maxlen=args.doc_maxlen,
                                       dim=args.dim,
