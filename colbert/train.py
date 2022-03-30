@@ -21,8 +21,8 @@ def main():
 
     assert args.bsize % args.accumsteps == 0, ((args.bsize, args.accumsteps),
                                                "The batch size must be divisible by the number of gradient accumulation steps.")
-    assert args.query_maxlen <= 512
-    assert args.doc_maxlen <= 512
+    assert args.query_maxlen <= 1000
+    assert args.doc_maxlen <= 1000
 
     args.lazy = args.collection is not None
 

@@ -2,18 +2,19 @@ import os
 import ujson
 import random
 
+from underthesea import sent_tokenize
 
 # import sys
 # sys.path.insert(1, "../")
 # from argparse import ArgumentParser
 # parser = ArgumentParser()
-# parser.add_argument('--query_maxlen', dest='query_maxlen', default=32, type=int)
-# parser.add_argument('--doc_maxlen', dest='doc_maxlen', default=180, type=int)
-# parser.add_argument('--pretrained_tokenizer', dest='pretrained_tokenizer', default="../pretrained/pretrained/phobert")
+# parser.add_argument('--query_maxlen', dest='query_maxlen', default=500, type=int)
+# parser.add_argument('--doc_maxlen', dest='doc_maxlen', default=800, type=int)
+# parser.add_argument('--pretrained_tokenizer', dest='pretrained_tokenizer', default="../pretrained/pretrained/bartpho")
 # parser.add_argument('--bsize', dest='bsize', default=32, type=int)
-# parser.add_argument('--positives', dest='positives', default="../dataset/sentence/positive_pairs.tsv")
-# parser.add_argument('--queries', dest='queries', default="../dataset/sentence/queries.tsv")
-# parser.add_argument('--collection', dest='collection', default="../dataset/sentence/collection.tsv")
+# parser.add_argument('--positives', dest='positives', default="../dataset/document/positive_pairs.tsv")
+# parser.add_argument('--queries', dest='queries', default="../dataset/document/queries.tsv")
+# parser.add_argument('--collection', dest='collection', default="../dataset/document/collection.tsv")
 # parser.add_argument('--accum', dest='accumsteps', default=2, type=int)
 # args = parser.parse_args()
 
@@ -97,11 +98,6 @@ class LazyBatcher():
                 pid, passage = line.strip().split('\t')
                 pid = int(pid)
                 collection[pid] = passage
-                # pid, passage, title, *_ = line.strip().split('\t')
-                # assert pid == 'id' or int(pid) == line_idx
-
-                # passage = title + ' | ' + passage
-                # collection.append(passage)
 
         return collection
 
@@ -113,7 +109,14 @@ class LazyBatcher():
 
     def __next__(self):
         queries, positives, negatives = [], [], []
-        samples = random.sample(self.positive_pairs, self.bsize)
+        
+        p_augmented_query = random.uniform(0, 0.8)
+        bsize = round(p_augmented_query * self.bsize)
+        samples = random.sample(self.positive_pairs, bsize)
+        # print_message(f"Probability for augment: {p_augmented_query}")
+        # print_message(f"Augment nums: {self.bsize - bsize}")
+        # get true positives and random negatives
+        # print_message("Start getting true queries")
         for qid, pid_pos in samples:
             qid = int(qid)
             pid_pos = int(pid_pos)
@@ -129,23 +132,36 @@ class LazyBatcher():
             queries.append(query)
             positives.append(pos)
             negatives.append(neg)
+        
+        # get augmented queries
+        i = 0
+        # print_message("Start getting augmented queries")
+        while i < self.bsize - bsize:
+        # for i in range(self.bsize - bsize):
+            pid_pos = random.choice(self.collection_keys)
+            pos = self.collection[pid_pos]
+            sentences = sent_tokenize(pos)
+            if len(sentences) < 3 or len(sentences) > 5: continue
 
-            # print_triples(query, pos, neg)
-        # offset, endpos = self.position, min(self.position + self.bsize, len(self.triples))
-        # self.position = endpos
+            pid_neg = pid_pos
+            while pid_neg == pid_pos:
+                pid_neg = random.choice(self.collection_keys)
 
-        # if offset + self.bsize > len(self.triples):
-        #     raise StopIteration
+            neg = self.collection[pid_neg]
 
-        # for position in range(offset, endpos):
-        #     query, pos, neg = self.triples[position]
-        #     query, pos, neg = self.queries[query], self.collection[pos], self.collection[neg]
-
-        #     queries.append(query)
-        #     positives.append(pos)
-        #     negatives.append(neg)
-
+            num_sample = random.choice([1, 2])
+            samples = random.sample(sentences, num_sample)
+            # print(samples)
+            query = " ".join(samples)
+            queries.append(query)
+            positives.append(pos)
+            negatives.append(neg)
+            i += 1
+        # for query, pos, neg in zip(queries, positives, negatives):
+        #     print_triples(query, pos, neg)
+        # print_message(f"Queries length {len(queries)}")
         return self.collate(queries, positives, negatives)
+
 
     def collate(self, queries, positives, negatives):
         assert len(queries) == len(positives) == len(negatives) == self.bsize
@@ -161,10 +177,11 @@ class LazyBatcher():
 #     print(f"Query: {query}")
 #     print(f"Positive passage: {pos}")
 #     print(f"Negative passage: {neg}")
-#     print("-"*20)
+#     print("-"*50)
 # if __name__ == "__main__":
 #     reader = LazyBatcher(args)
 
 #     for batch_idx, BatchSteps in zip(range(0, 2), reader):
+#         print_message(f"Batch {batch_idx}")
 #         for queries, passages in BatchSteps:
 #             pass
