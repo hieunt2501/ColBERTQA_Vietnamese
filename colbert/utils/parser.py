@@ -53,6 +53,7 @@ class Arguments():
         self.add_argument('--positives', dest='positives', required=True)
         self.add_argument('--queries', dest='queries', required=True)
         self.add_argument('--collection', dest='collection', required=True)
+        self.add_argument('--qpa_pairs', dest="qpa_pairs", required=True)
 
         def check_training_input(args):
             assert (args.collection is None) == (args.queries is None), \

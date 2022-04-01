@@ -9,12 +9,13 @@ from underthesea import sent_tokenize
 # from argparse import ArgumentParser
 # parser = ArgumentParser()
 # parser.add_argument('--query_maxlen', dest='query_maxlen', default=500, type=int)
-# parser.add_argument('--doc_maxlen', dest='doc_maxlen', default=800, type=int)
+# parser.add_argument('--doc_maxlen', dest='doc_maxlen', default=1024, type=int)
 # parser.add_argument('--pretrained_tokenizer', dest='pretrained_tokenizer', default="../pretrained/pretrained/bartpho")
 # parser.add_argument('--bsize', dest='bsize', default=32, type=int)
 # parser.add_argument('--positives', dest='positives', default="../dataset/document/positive_pairs.tsv")
 # parser.add_argument('--queries', dest='queries', default="../dataset/document/queries.tsv")
 # parser.add_argument('--collection', dest='collection', default="../dataset/document/collection.tsv")
+# parser.add_argument('--qpa_pairs', dest='qpa_pairs', default="../dataset/document/qpar.tsv")
 # parser.add_argument('--accum', dest='accumsteps', default=2, type=int)
 # args = parser.parse_args()
 
@@ -35,13 +36,15 @@ class LazyBatcher():
         self.doc_tokenizer = DocTokenizer(args.doc_maxlen, args.pretrained_tokenizer)
         self.tensorize_triples = partial(tensorize_triples, self.query_tokenizer, self.doc_tokenizer)
         self.position = 0
-
+        self.doc_maxlen = args.doc_maxlen
+        self.query_maxlen = args.query_maxlen
         # self.triples = self._load_triples(args.triples, rank, nranks)
+        self.qpa_pairs = self._load_qpa_pairs(args.qpa_pairs)
         self.positive_pairs = self._load_positive_pairs(args.positives, rank, nranks)
         self.queries = self._load_queries(args.queries)
         self.collection = self._load_collection(args.collection)
         self.collection_keys = list(self.collection.keys())
-
+        
     def _load_triples(self, path, rank, nranks):
         """
         NOTE: For distributed sampling, this isn't equivalent to perfectly uniform sampling.
@@ -62,9 +65,20 @@ class LazyBatcher():
 
         return triples
 
+    def _load_qpa_pairs(self, path):
+        print_message("#> Loading queries passages answer pairs...")
+
+        qpa_dict = {}
+
+        with open(path) as f:
+            for line in f:
+                pid, qid, ans, _ = line.split("\t")
+                qpa_dict[(pid, qid)] = ans
+
+        return qpa_dict 
+
     def _load_positive_pairs(self, path, rank, nranks):
         print_message("#> Loading positive pairs...")
-        print_message(rank, nranks)
         positive_pairs = []
 
         with open(path) as f:
@@ -101,6 +115,37 @@ class LazyBatcher():
 
         return collection
 
+    def _check_document_length(self, qid=0, pid=0, sentences=[], augment=False):
+        if augment:
+            return self._get_inner_documents(sentences)
+
+        answer = self.qpa_pairs[(qid, pid)]
+        if answer == "NO ANSWER":
+            return self._get_inner_documents(sentences)
+        
+        for idx, sentence in sentences:
+            if answer in sentence:
+                if idx + 1 != len(sentences) - 1 and idx - 1 != 0:
+                    sentences = sentences[idx-1:idx+1] 
+                elif idx - 1 == 0 and idx + 1 == len(sentences) - 1:
+                    sentences = sentences[idx]
+                elif idx - 1 == 0:
+                    sentences = sentences[:idx + 1]
+                else:
+                    sentences = sentences[idx-1:]
+                return " ".join(sentences), sentences
+    
+    def _get_inner_documents(self, sentences):
+        start_idx = random.choice(range(int(len(sentences)/2)))
+        if start_idx + 2 >= len(sentences):
+            end_idx = len(sentences - 1)
+        else:
+            end_idx = random.choice(range(start_idx + 2, len(sentences)))
+        # print(start_idx, end_idx)
+        sentences = sentences[start_idx:end_idx]
+        pos = " ".join(sentences)
+        return pos, sentences
+
     def __iter__(self):
         return self
 
@@ -120,13 +165,16 @@ class LazyBatcher():
         for qid, pid_pos in samples:
             qid = int(qid)
             pid_pos = int(pid_pos)
-
+            
             pid_neg = pid_pos
             while pid_neg == pid_pos:
                 pid_neg = random.choice(self.collection_keys)
             
             query = self.queries[qid]
             pos = self.collection[pid_pos]
+            if len(pos.split()) > self.doc_maxlen:
+                pos = self._check_document_length(qid, pid_pos, sent_tokenize(pos))[0]
+
             neg = self.collection[pid_neg]
 
             queries.append(query)
@@ -141,17 +189,21 @@ class LazyBatcher():
             pid_pos = random.choice(self.collection_keys)
             pos = self.collection[pid_pos]
             sentences = sent_tokenize(pos)
-            if len(sentences) < 3 or len(sentences) > 5: continue
-
+            if len(sentences) < 3: 
+                continue
+            
             pid_neg = pid_pos
             while pid_neg == pid_pos:
                 pid_neg = random.choice(self.collection_keys)
 
             neg = self.collection[pid_neg]
+            if len(pos.split()) > self.doc_maxlen:
+                pos, sentences = self._check_document_length(sentences=sentences, 
+                                                             augment=True)
 
             num_sample = random.choice([1, 2])
             samples = random.sample(sentences, num_sample)
-            # print(samples)
+
             query = " ".join(samples)
             queries.append(query)
             positives.append(pos)
@@ -159,9 +211,7 @@ class LazyBatcher():
             i += 1
         # for query, pos, neg in zip(queries, positives, negatives):
         #     print_triples(query, pos, neg)
-        # print_message(f"Queries length {len(queries)}")
         return self.collate(queries, positives, negatives)
-
 
     def collate(self, queries, positives, negatives):
         assert len(queries) == len(positives) == len(negatives) == self.bsize
@@ -171,7 +221,6 @@ class LazyBatcher():
     def skip_to_batch(self, batch_idx, intended_batch_size):
         Run.warn(f'Skipping to batch #{batch_idx} (with intended_batch_size = {intended_batch_size}) for training.')
         self.position = intended_batch_size * batch_idx
-
 
 # def print_triples(query, pos, neg):
 #     print(f"Query: {query}")
