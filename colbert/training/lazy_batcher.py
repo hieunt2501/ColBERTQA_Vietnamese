@@ -73,7 +73,7 @@ class LazyBatcher():
         with open(path) as f:
             for line in f:
                 pid, qid, ans, _ = line.split("\t")
-                qpa_dict[(pid, qid)] = ans
+                qpa_dict[(qid, pid)] = ans
 
         return qpa_dict 
 
@@ -119,8 +119,11 @@ class LazyBatcher():
         if augment:
             return self._get_inner_documents(sentences)
 
-        answer = self.qpa_pairs[(qid, pid)]
-        if answer == "NO ANSWER":
+        try:
+            answer = self.qpa_pairs[(qid, pid)]
+            if answer == "NO ANSWER":
+                return self._get_inner_documents(sentences)
+        except:
             return self._get_inner_documents(sentences)
         
         for idx, sentence in sentences:
