@@ -1,5 +1,6 @@
 import os
 import random
+from collections import OrderedDict
 
 from colbert.utils.parser import Arguments
 from colbert.utils.runs import Run
@@ -41,6 +42,18 @@ def main():
             "Short-circuiting (i.e., applying minimal computation to queries with no positives in the re-ranked set) " \
             "can only be applied if qrels is provided."
 
+        if len(args.qrels.keys()) != len(args.queries.keys()):
+          intersection_keys = args.qrels.keys() & args.queries.keys()
+
+          new_qrels = OrderedDict()
+          new_queries = OrderedDict()
+
+          for key in intersection_keys:
+              new_qrels[key] = args.qrels[key]
+              new_queries[key] = args.queries[key]
+          args.qrels = new_qrels
+          args.queries = new_queries
+        
         evaluate_recall(args.qrels, args.queries, args.topK_pids)
         evaluate(args)
 
