@@ -5,7 +5,7 @@ from collections import OrderedDict
 from colbert.utils.parser import Arguments
 from colbert.utils.runs import Run
 
-from colbert.evaluation.loaders import load_colbert, load_topK, load_qrels
+from colbert.evaluation.loaders import load_colbert, load_sent_ref, load_topK, load_qrels
 from colbert.evaluation.loaders import load_queries, load_topK_pids, load_collection
 from colbert.evaluation.ranking import evaluate
 from colbert.evaluation.metrics import evaluate_recall
@@ -27,6 +27,9 @@ def main():
     with Run.context():
         args.colbert, args.checkpoint = load_colbert(args)
         args.qrels = load_qrels(args.qrels)
+
+        if args.sent_ref:
+            args.sent_ref = load_sent_ref(args.sent_ref)
 
         if args.collection or args.queries:
             assert args.collection and args.queries

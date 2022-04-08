@@ -18,11 +18,11 @@ from colbert.evaluation.slow import slow_rerank
 
 
 def evaluate(args):
-    args.inference = ModelInference(args.colbert, amp=args.amp)
+    args.inference = ModelInference(args.colbert, amp=args.amp, pretrained_tokenizer=args.pretrained_tokenizer)
     qrels, queries, topK_pids = args.qrels, args.queries, args.topK_pids
-
     depth = args.depth
     collection = args.collection
+
     if collection is None:
         topK_docs = args.topK_docs
 
@@ -53,7 +53,7 @@ def evaluate(args):
                 if qrels and args.shortcircuit and len(set.intersection(set(qrels[qid]), set(topK_pids[qid]))) == 0:
                     continue
 
-                ranking = slow_rerank(args, query, topK_pids[qid], qid2passages(qid))
+                ranking = slow_rerank(args, query, topK_pids[qid], qid2passages(qid), args.sent_ref)
 
                 rlogger.log(qid, ranking, [0, 1])
 

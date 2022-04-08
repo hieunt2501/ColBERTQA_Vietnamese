@@ -174,6 +174,19 @@ def load_collection(collection_path):
     return collection
 
 
+def load_sent_ref(sent_ref_path):
+    sent_ref = {}
+
+    with open(sent_ref_path) as f:
+        for line in f:
+            sid, pid, passage = line.strip().split('\t')
+            sid = int(sid)
+            pid = int(pid)
+            sent_ref[sid] = (pid, passage)
+
+    return sent_ref 
+
+
 def load_colbert(args, do_print=True):
     colbert, checkpoint = load_model(args, do_print)
 

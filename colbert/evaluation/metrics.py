@@ -21,7 +21,7 @@ class Metrics:
         assert query_key not in self.results
         assert len(self.results) <= query_idx
         assert len(set(gold_positives)) == len(gold_positives)
-        assert len(set([pid for _, pid, _ in ranking])) == len(ranking)
+        # assert len(set([pid for _, pid, _ in ranking])) == len(ranking)
 
         self.results[query_key] = ranking
 

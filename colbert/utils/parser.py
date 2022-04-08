@@ -47,6 +47,7 @@ class Arguments():
         self.add_argument('--checkpoint', dest='checkpoint', required=True)
         self.add_argument('--bsize', dest='bsize', default=128, type=int)
         self.add_argument('--amp', dest='amp', default=False, action='store_true')
+        self.add_argument('--sent_ref', dest='sent_ref', default="")
 
     def add_training_input(self):
         # self.add_argument('--triples', dest='triples', required=True)
