@@ -24,7 +24,7 @@ def main():
     assert args.query_maxlen <= 1024
     assert args.doc_maxlen <= 1024
 
-    args.lazy = args.collection is not None
+    # args.lazy = args.collection is not None
 
     with Run.context(consider_failed_if_interrupted=False):
         train(args)
