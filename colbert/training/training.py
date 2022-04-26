@@ -83,14 +83,11 @@ def train(args):
     train_loss = 0.0
 
     start_batch_idx = 0
-    # start_epoch = 0
     if args.resume:
         assert args.checkpoint is not None
         start_batch_idx = checkpoint['batch']
-        # start_epoch = checkpoint["epoch"]
         reader.skip_to_batch(start_batch_idx, checkpoint['arguments']['bsize'])
 
-    # for epoch in range(start_epoch, args.epochs):
     for batch_idx, BatchSteps in zip(range(start_batch_idx, args.maxsteps), reader):
         this_batch_loss = 0.0
 

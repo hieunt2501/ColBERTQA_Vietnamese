@@ -1,8 +1,8 @@
 import hashlib
 import time
-# import ujson
+import random
 
-# from concurrent.futures import ThreadPoolExecutor
+
 from colbert.elasticsearch.config.config import Config
 from colbert.elasticsearch.services.base_service import BaseService
 from elasticsearch import Elasticsearch
@@ -46,9 +46,9 @@ class ElasticSearchService(BaseService):
                     self.es.indices.create(
                         index=self.config.es_doc_index, body=request_body)
                     
-                # if not self.es.indices.exists(index=self.config.es_q_index):
-                #     self.es.indices.create(
-                #         index=self.config.es_q_index, body=request_body)
+                if not self.es.indices.exists(index=self.config.es_q_index):
+                    self.es.indices.create(
+                        index=self.config.es_q_index, body=request_body)
                 done = True
                 print("INDEX CREATED")
             except Exception as e:
@@ -88,7 +88,7 @@ class ElasticSearchService(BaseService):
             
         self.es.delete(index=index, id=doc_id)
 
-    def search_question(self, question_id, size=5):
+    def search_question(self, question_id, size=1):
         def search_func():
             out = self.es.search(index=self.config.es_q_index,
                                  size=size,
@@ -106,7 +106,7 @@ class ElasticSearchService(BaseService):
         # outputs.sort(key=lambda i: i[0], reverse=True)
         return outputs
 
-    def search_document(self, doc_id, size=5):
+    def search_document(self, doc_id, size=1):
         def search_func():
             out = self.es.search(index=self.config.es_doc_index,
                                  size=size,
@@ -124,4 +124,43 @@ class ElasticSearchService(BaseService):
                             item["_source"]["neg_passage"]])
 
         # outputs.sort(key=lambda i: i[0], reverse=True)
+        return outputs
+
+    def get_random_negative_document(self, qid, text, size=500):
+        def search_func():
+            out = self.es.search(index=self.config.es_doc_index,
+                                 size=size,
+                                 query={
+                                     "bool":{
+                                         "must_not": {"match": {"doc_id": qid}},
+                                         "should": {"match": {"neg_passage": text}}
+                                     }
+                                 })
+            return out["hits"]["hits"]
+        results = self.make_request(search_func)
+        outputs = []
+        for item in results:
+            outputs.append([item["_score"], item["_source"]["neg_passage"]])
+        outputs.sort(key=lambda i: i[0], reverse=True)
+        chosen_passage = random.choice(outputs)
+        return chosen_passage[1]
+
+    def get_random_questions(self, size=1):
+        def search_func():
+            out = self.es.search(index=self.config.es_q_index,
+                                 size=size,
+                                 query={
+                                     "function_score": {
+                                         "functions":[{
+                                             "random_score": {}}
+                                         ]
+                                    }
+                                 })
+            
+            return out["hits"]["hits"]
+        
+        results = self.make_request(search_func)
+        outputs = []
+        for item in results:
+            outputs.append([item["_source"]["question_id"], item["_source"]["text"]])
         return outputs

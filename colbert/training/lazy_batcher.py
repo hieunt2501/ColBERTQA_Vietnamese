@@ -3,25 +3,19 @@ import ujson
 import random
 from tqdm import tqdm
 
-from underthesea import sent_tokenize, word_tokenize
+# from underthesea import sent_tokenize, word_tokenize
 
 # import sys
 # sys.path.insert(1, "../")
+
 # from argparse import ArgumentParser
 # parser = ArgumentParser()
 # parser.add_argument('--query_maxlen', dest='query_maxlen', default=500, type=int)
 # parser.add_argument('--doc_maxlen', dest='doc_maxlen', default=1024, type=int)
-# parser.add_argument('--pretrained_tokenizer', dest='pretrained_tokenizer', default="../pretrained/pretrained/bartpho")
-# parser.add_argument('--bsize', dest='bsize', default=10, type=int)
-
+# parser.add_argument('--pretrained_tokenizer', dest='pretrained_tokenizer', default="../pretrained/bartpho")
+# parser.add_argument('--bsize', dest='bsize', default=32, type=int)
 # parser.add_argument('--accum', dest='accumsteps', default=2, type=int)
 # parser.add_argument('--fine_tune', dest='fine_tune', default=False, action='store_true')
-
-# parser.add_argument('--queries', dest='queries', default="../dataset/pretrain/pseudo_questions.tsv")
-# parser.add_argument('--positive_collection', dest='positive_collection', default="../dataset/pretrain/positive_collection.tsv")
-# parser.add_argument('--negative_collection', dest='negative_collection', default="../dataset/pretrain/negative_collection.tsv")
-# parser.add_argument('--top500', dest='top500', default="../dataset/pretrain/top500_per_line.txt")
-
 # args = parser.parse_args()
 
 from ast import literal_eval
@@ -31,10 +25,12 @@ from colbert.modeling.tokenization import QueryTokenizer, DocTokenizer, tensoriz
 from colbert.elasticsearch.config.config import Config
 from colbert.elasticsearch.services.es_services import ElasticSearchService
 from colbert.utils.runs import Run
+from colbert.text_processor.processor import TextProcessor
 
 random.seed(1234)
 
 config_ = Config()
+
 class LazyBatcher():
     def __init__(self, args, rank=0, nranks=1):
         self.bsize, self.accumsteps = args.bsize, args.accumsteps
@@ -49,7 +45,7 @@ class LazyBatcher():
         self.doc_maxlen = args.doc_maxlen
         self.query_maxlen = args.query_maxlen
         self.fine_tune = args.fine_tune
-
+        self.processor = TextProcessor()
         if self.fine_tune:
             # fine_tuned dataset
             self.queries = self._load_queries(args.queries)
@@ -58,36 +54,7 @@ class LazyBatcher():
             self.positive_pairs = self._load_positive_pairs(
                 args.positives, rank, nranks)
             self.collection = self._load_collection(args.collection)
-        else:
-        #     # pretrained_dataset
-        #     self.queries = self._load_queries(args.queries)
-        #     self.positive_collection = self._load_collection(
-        #         args.positive_collection)
-        #     self.negative_collection = self._load_collection(
-        #         args.negative_collection)
-            self.top500_path = args.top500
-            self.collection_len = self.get_max_document_len()
-
-        # self.collection_keys = list(self.collection.keys())
-
-    def get_max_document_len(self):
-        with open(self.top500_path, "r", encoding="utf8") as f:
-            count = 0
-            for _ in f:
-                if _:
-                    count += 1
-        return count
-
-    def get_random_top500_idx(self, indices):
-        chosen_pid = []
-        with open(self.top500_path, "r", encoding="utf8") as f:
-            for i, line in enumerate(f):
-                if i in indices:
-                    line = literal_eval(line)
-                    pid = random.sample(line, 1)[0]
-                    chosen_pid.append(pid)
-                    continue
-        return chosen_pid
+            self.collection_keys = list(self.collection.keys())
 
     def _load_triples(self, path, rank, nranks):
         """
@@ -142,7 +109,7 @@ class LazyBatcher():
             for line in tqdm(f):
                 qid, query = line.strip().split('\t')
                 qid = int(qid)
-                queries[qid] = word_tokenize(query, format="text")
+                queries[qid] = self.processor.process(query)
 
         return queries
 
@@ -155,7 +122,7 @@ class LazyBatcher():
             for _, line in enumerate(f):
                 pid, passage = line.strip().split('\t')
                 pid = int(pid)
-                collection[pid] = word_tokenize(passage, format="text")
+                collection[pid] = self.processor.process(passage)
 
         return collection
 
@@ -188,7 +155,6 @@ class LazyBatcher():
             end_idx = len(sentences - 1)
         else:
             end_idx = random.choice(range(start_idx + 2, len(sentences)))
-        # print(start_idx, end_idx)
         sentences = sentences[start_idx:end_idx]
         pos = " ".join(sentences)
         return pos, sentences
@@ -245,7 +211,7 @@ class LazyBatcher():
                 neg = self.collection[pid_neg]
                 if len(pos.split()) > self.doc_maxlen:
                     pos, sentences = self._check_document_length(sentences=sentences,
-                                                                augment=True)
+                                                                 augment=True)
 
                 num_sample = random.choice([1, 2])
                 samples = random.sample(sentences, num_sample)
@@ -258,24 +224,25 @@ class LazyBatcher():
             # for query, pos, neg in zip(queries, positives, negatives):
             #     print_triples(query, pos, neg)
         else:
-            qids = random.sample(range(self.collection_len), self.bsize)
-            # queries = []
-            # for qid in queries:
-            # print(qids)
-            neg_pids = self.get_random_top500_idx(qids)
-            # print(neg_pids)
-            
-            for qid, neg_pid in zip(qids, neg_pids):
-                query = self.es_service.search_question(qid)[0][1]
-                pos = self.es_service.search_document(qid)[0][1]
-                neg = self.es_service.search_document(neg_pid)[0][2]
+            random_queries = self.es_service.get_random_questions(size=self.bsize)
 
-                queries.append(word_tokenize(query, format="text"))
-                positives.append(word_tokenize(pos, format="text"))
-                negatives.append(word_tokenize(neg, format="text"))
+            for qid, query in random_queries:
+                pos = ""
+                neg = ""
+                while not pos and not neg:
+                    try:
+                        pos = self.es_service.search_document(qid)[0][1]
+                        neg = self.es_service.get_random_negative_document(qid, query)
+                    except:
+                        qid, query = self.es_service.get_random_questions(size=1)[0]
+                        continue
+
+                queries.append(self.processor.process(query))
+                positives.append(self.processor.process(pos))
+                negatives.append(self.processor.process(neg))
 
             # for query, pos, neg in zip(queries, positives, negatives):
-            #     print_triples(query, pos, neg)
+                # print_triples(query, pos, neg)
         return self.collate(queries, positives, negatives)
 
     def collate(self, queries, positives, negatives):
@@ -293,11 +260,11 @@ class LazyBatcher():
 #     print(f"Positive passage: {pos}")
 #     print(f"Negative passage: {neg}")
 #     print("-"*50)
-    
+
 # if __name__ == "__main__":
 #     reader = LazyBatcher(args)
 
-#     for batch_idx, BatchSteps in zip(range(0, 2), reader):
+#     for batch_idx, BatchSteps in zip(range(0, 20), reader):
 #         print_message(f"Batch {batch_idx}")
 #         for queries, passages in BatchSteps:
 #             pass

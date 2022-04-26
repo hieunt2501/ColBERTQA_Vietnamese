@@ -12,4 +12,4 @@ class Config:
     vn_core_url = os.getenv(VN_CORE_URL, "http://172.28.0.23")
     vn_core_port = int(os.getenv(VN_CORE_PORT, 20215))
     text_max_length = int(os.getenv(TEXT_MAX_LENGTH, 400))
-    stop_words = [item.rstrip() for item in open("elasticsearch/config/question_word.txt", "r", encoding="utf8").readlines()]
+    stop_words = [item.rstrip() for item in open("./colbert/elasticsearch/config/question_word.txt", "r", encoding="utf8").readlines()]

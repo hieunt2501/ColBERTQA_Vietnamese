@@ -3,10 +3,11 @@ import torch
 import torch.nn as nn
 
 from transformers import RobertaPreTrainedModel, RobertaModel, AutoTokenizer
+from transformers import MBartPreTrainedModel, MBartModel, AutoTokenizer
 from colbert.parameters import DEVICE
 
 
-class ColBERT(RobertaPreTrainedModel):
+class ColBERT(MBartPreTrainedModel):
     def __init__(self, config, query_maxlen, doc_maxlen, mask_punctuation, pretrained_tokenizer="", dim=128, similarity_metric='cosine'):
 
         super(ColBERT, self).__init__(config)
@@ -29,7 +30,7 @@ class ColBERT(RobertaPreTrainedModel):
                              for symbol in string.punctuation
                              for w in [symbol, self.tokenizer.encode(symbol, add_special_tokens=False)[0]]}
 
-        self.bert = RobertaModel(config)
+        self.bert = MBartModel(config)
         # resize embedding for new tokens
         self.bert.resize_token_embeddings(len(self.tokenizer)) 
         # with torch.no_grad():

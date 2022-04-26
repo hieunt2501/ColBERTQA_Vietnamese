@@ -17,7 +17,6 @@ class Arguments():
         self.add_argument('--root', dest='root', default='experiments')
         self.add_argument('--experiment', dest='experiment', default='dirty')
         self.add_argument('--run', dest='run', default=Run.name)
-
         self.add_argument('--local_rank', dest='rank', default=-1, type=int)
 
     def add_model_parameters(self):
@@ -53,7 +52,7 @@ class Arguments():
         self.add_argument('--accum', dest='accumsteps', default=2, type=int)
         self.add_argument('--amp', dest='amp',
                           default=False, action='store_true')
-        # self.add_argument('--epochs', dest='epochs', default=1, type=int)
+        
 
     def add_model_inference_parameters(self):
         self.add_argument('--checkpoint', dest='checkpoint', required=True)
@@ -62,9 +61,9 @@ class Arguments():
                           default=False, action='store_true')
 
     def add_training_input(self):
-        self.add_argument('--queries', dest='queries', required=True)
         args = self.parser.parse_args()
         if args.fine_tune:
+            self.add_argument('--queries', dest='queries', required=True)
             self.add_argument('--triples', dest='triples', required=True)
             self.add_argument('--positives', dest='positives', required=True)
             self.add_argument('--collection', dest='collection', required=True)
@@ -76,8 +75,6 @@ class Arguments():
                     "If neither is supplied, the --triples file must contain texts (not PIDs)."
 
             self.checks.append(check_training_input)
-        else:
-            self.add_argument('--top500', dest='top500', required=True)
 
     def add_ranking_input(self):
         self.add_argument('--queries', dest='queries', default=None)
